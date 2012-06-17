@@ -1,0 +1,2 @@
+include LICENSE MANIFEST.in MANIFEST
+recursive-include rrdtool-1.4.7 *
