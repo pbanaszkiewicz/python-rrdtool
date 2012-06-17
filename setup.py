@@ -20,7 +20,8 @@
 #  GNU Lesser General Public License for more details.
 
 from distutils.core import setup, Extension
-from distutils.spawn import find_executable, spawn
+from distutils.command.build import build
+from distutils.spawn import find_executable
 import os
 import os.path
 
@@ -30,9 +31,16 @@ RRDBASE = os.environ.get('LOCALBASE', SOURCE + '/src')
 library_dir = os.environ.get('BUILDLIBDIR', os.path.join(RRDBASE, '.libs'))
 include_dir = os.environ.get('INCDIR', RRDBASE)
 
-executable = find_executable("configure")
-if executable:
-    spawn([os.path.abspath(executable), ""], dry_run=False)
+
+class configure(build):
+    def run(self):
+        executable = find_executable("configure", path=SOURCE)
+        if executable:
+            import subprocess
+            executable = os.path.abspath(executable)
+            subprocess.check_call(executable, cwd=os.path.dirname(executable))
+        build.run(self)  # running parent, even though it seems empty
+
 
 setup(
     name="python-rrdtool",
@@ -42,6 +50,7 @@ setup(
     author_email="piotr@banaszkiewicz.org",
     license="LGPL",
     url="http://oss.oetiker.ch/rrdtool",
+    cmdclass={"build": configure},
     #packages=['rrdtool'],
     ext_modules=[
         Extension(
