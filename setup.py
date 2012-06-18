@@ -19,8 +19,9 @@
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU Lesser General Public License for more details.
 
-from distutils.core import setup, Extension
+from distutils.core import setup, Extension, Command
 from distutils.command.build import build
+from distutils.command.build_ext import build_ext
 from distutils.spawn import find_executable
 import os
 import os.path
@@ -42,6 +43,35 @@ class configure(build):
         build.run(self)  # running parent, even though it seems empty
 
 
+class BuildConfigure(Command):
+    description = "Generate configuration files using ./configure (autoconf)"
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        if not os.path.exists(os.path.join(SOURCE, "config.status")):
+            executable = find_executable("configure", path=SOURCE)
+            if executable:
+                import subprocess
+                executable = os.path.abspath(executable)
+                os.chmod(executable, 0777)
+                subprocess.check_call(executable, cwd=os.path.dirname(executable))
+
+
+class BuildExtension(build_ext):
+    def run(self):
+        for cmd_name in self.get_sub_commands():
+            self.run_command(cmd_name)
+
+        build_ext.run(self)
+
+    sub_commands = [("build_configure", None)] + build_ext.sub_commands
+
+
 setup(
     name="python-rrdtool",
     version="1.4.7",
@@ -50,7 +80,7 @@ setup(
     author_email="piotr@banaszkiewicz.org",
     license="LGPL",
     url="http://oss.oetiker.ch/rrdtool",
-    cmdclass={"build": configure},
+    cmdclass={"build_configure": BuildConfigure, "build_ext": BuildExtension},
     #packages=['rrdtool'],
     ext_modules=[
         Extension(
