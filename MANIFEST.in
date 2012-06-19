@@ -1,2 +1,2 @@
-include LICENSE MANIFEST.in MANIFEST
+include LICENSE MANIFEST.in MANIFEST README.rst
 recursive-include rrdtool-1.4.7 *

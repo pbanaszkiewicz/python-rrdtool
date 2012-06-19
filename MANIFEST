@@ -2,7 +2,7 @@
 LICENSE
 MANIFEST
 MANIFEST.in
-README
+README.rst
 setup.py
 rrdtool-1.4.7/ABOUT-NLS
 rrdtool-1.4.7/CHANGES
