@@ -79,9 +79,17 @@ setup(
     author="Piotr Banaszkiewicz",
     author_email="piotr@banaszkiewicz.org",
     license="LGPL",
-    url="http://oss.oetiker.ch/rrdtool",
+    url="https://github.com/pbanaszkiewicz/python-rrdtool",
+    long_description=open("README.rst", "r").read(),
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: System :: Archiving",
+        "Topic :: System :: Monitoring",
+        "Topic :: Utilities",
+    ],
     cmdclass={"build_configure": BuildConfigure, "build_ext": BuildExtension},
-    #packages=['rrdtool'],
     ext_modules=[
         Extension(
             "rrdtoolmodule",
