@@ -11,10 +11,14 @@ Useful links:
 - RRDTool Python module: http://oss.oetiker.ch/rrdtool/prog/rrdpython.en.html
 
 Installation
-~~~~~~~~~~~~
+------------
 
-In virtualenv: `pip install python-rrdtool`
+A few development (header) files are required to build ``python-rrdtool``: for
+Python, libcairo2, libpango, libxml2, libglib2 and librrd. In Ubuntu run:
+``sudo apt-get install libcairo2-dev libpango1.0-dev libglib2.0-dev libxml2-dev librrd-dev``
 
-From archive: `pip install python-rrdtool-1.4.7.tar.gz`
+In virtualenv: ``pip install python-rrdtool``
 
-From sources: `python setup.py install`
+From archive: ``pip install python-rrdtool-1.4.7.tar.gz``
+
+From sources: ``python setup.py install``
