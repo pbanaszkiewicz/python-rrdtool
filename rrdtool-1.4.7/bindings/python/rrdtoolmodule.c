@@ -43,23 +43,16 @@ static const char *__version__ = PACKAGE_VERSION;
 
 #include "Python.h"
 #include "../../src/rrd_tool.h"
-//#include "rrd.h"
-//#include "rrd_extra.h"
 
 static PyObject *ErrorObject;
 extern int optind;
 extern int opterr;
 
 /* forward declaration to keep compiler happy */
-void      initrrdtool(
-    void);
+void      initrrdtool(void);
 
-static int create_args(
-    char *command,
-    PyObject * args,
-    int *argc,
-    char ***argv)
-{
+static int
+create_args(char *command, PyObject * args, int *argc, char ***argv) {
     PyObject *o, *lo;
     int       args_count,
               argv_count,
@@ -70,18 +63,19 @@ static int create_args(
     element_count = 0;
     for (i = 0; i < args_count; i++) {
         o = PyTuple_GET_ITEM(args, i);
+
         if (PyString_Check(o))
             element_count++;
         else if (PyList_CheckExact(o))
-                element_count += PyList_Size(o);
-             else {
-                 PyErr_Format(PyExc_TypeError, "argument %d must be string or list of strings", i);
-                 return -1;
-             }
+            element_count += PyList_Size(o);
+        else {
+            PyErr_Format(PyExc_TypeError, 
+                        "argument %d must be string or list of strings", i);
+            return -1;
+        }
     }
    
-    *argv = PyMem_New(char *,
-                      element_count + 1);
+    *argv = PyMem_New(char *, element_count + 1);
 
     if (*argv == NULL)
         return -1;
@@ -92,23 +86,28 @@ static int create_args(
         if (PyString_Check(o)) {
             argv_count++;
             (*argv)[argv_count] = PyString_AS_STRING(o);
-        } else if (PyList_CheckExact(o))
-                   for (j = 0; j < PyList_Size(o); j++) {
-                       lo = PyList_GetItem(o, j);
-                       if (PyString_Check(lo)) {
-                           argv_count++;
-                           (*argv)[argv_count] = PyString_AS_STRING(lo);
-                       } else {
-                             PyMem_Del(*argv);
-                             PyErr_Format(PyExc_TypeError, "element %d in argument %d must be string", j, i);
-                             return -1;
-                       }
-                   }
-               else {
-                   PyMem_Del(*argv);
-                   PyErr_Format(PyExc_TypeError, "argument %d must be string or list of strings", i);
-                   return -1;
-               }
+        }
+        else if (PyList_CheckExact(o)) {
+            for (j = 0; j < PyList_Size(o); j++) {
+                lo = PyList_GetItem(o, j);
+                if (PyString_Check(lo)) {
+                    argv_count++;
+                    (*argv)[argv_count] = PyString_AS_STRING(lo);
+                }
+                else {
+                    PyMem_Del(*argv);
+                    PyErr_Format(PyExc_TypeError, 
+                            "element %d in argument %d must be string", j, i);
+                    return -1;
+                }
+            }
+        }
+        else {
+            PyMem_Del(*argv);
+            PyErr_Format(PyExc_TypeError, 
+                        "argument %d must be string or list of strings", i);
+            return -1;
+        }
     }
 
     (*argv)[0] = command;
@@ -120,9 +119,8 @@ static int create_args(
     return 0;
 }
 
-static void destroy_args(
-    char ***argv)
-{
+static void 
+destroy_args(char ***argv) {
     PyMem_Del(*argv);
     *argv = NULL;
 }
@@ -133,10 +131,8 @@ static char PyRRD_create__doc__[] =
 [--step|-s step] [DS:ds-name:DST:heartbeat:min:max] \
 [RRA:CF:xff:steps:rows]";
 
-static PyObject *PyRRD_create(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_create(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     char    **argv;
     int       argc;
@@ -148,7 +144,8 @@ static PyObject *PyRRD_create(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         Py_INCREF(Py_None);
         r = Py_None;
     }
@@ -162,10 +159,8 @@ static char PyRRD_update__doc__[] =
     "    update filename [--template|-t ds-name[:ds-name]...] "
     "N|timestamp:value[:value...] [timestamp:value[:value...] ...]";
 
-static PyObject *PyRRD_update(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_update(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     char    **argv;
     int       argc;
@@ -177,7 +172,8 @@ static PyObject *PyRRD_update(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         Py_INCREF(Py_None);
         r = Py_None;
     }
@@ -191,10 +187,8 @@ static char PyRRD_fetch__doc__[] =
     "    fetch filename CF [--resolution|-r resolution] "
     "[--start|-s start] [--end|-e end]";
 
-static PyObject *PyRRD_fetch(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_fetch(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     rrd_value_t *data, *datai;
     unsigned long step, ds_cnt;
@@ -210,7 +204,8 @@ static PyObject *PyRRD_fetch(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    }
+    else {
         /* Return :
            ((start, end, step), (name1, name2, ...), [(data1, data2, ..), ...]) */
         PyObject *range_tup, *dsnam_tup, *data_list, *t;
@@ -245,7 +240,8 @@ static PyObject *PyRRD_fetch(
                 if (isnan(dv)) {
                     PyTuple_SET_ITEM(t, j, Py_None);
                     Py_INCREF(Py_None);
-                } else {
+                } 
+                else {
                     PyTuple_SET_ITEM(t, j, PyFloat_FromDouble((double) dv));
                 }
             }
@@ -282,10 +278,8 @@ static char PyRRD_graph__doc__[] =
     "[LINE{1|2|3}:vname[#rrggbb[:legend]]] "
     "[AREA:vname[#rrggbb[:legend]]] " "[STACK:vname[#rrggbb[:legend]]]";
 
-static PyObject *PyRRD_graph(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_graph(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     char    **argv, **calcpr;
     int       argc, xsize, ysize, i;
@@ -294,12 +288,12 @@ static PyObject *PyRRD_graph(
     if (create_args("graph", args, &argc, &argv) < 0)
         return NULL;
 
-    if (rrd_graph(argc, argv, &calcpr, &xsize, &ysize, NULL, &ymin, &ymax) ==
-        -1) {
+    if (rrd_graph(argc, argv, &calcpr, &xsize, &ysize, NULL, &ymin, &ymax) == -1) {
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         r = PyTuple_New(3);
 
         PyTuple_SET_ITEM(r, 0, PyInt_FromLong((long) xsize));
@@ -318,7 +312,8 @@ static PyObject *PyRRD_graph(
                 rrd_freemem(calcpr[i]);
             }
             rrd_freemem(calcpr);
-        } else {
+        } 
+        else {
             Py_INCREF(Py_None);
             PyTuple_SET_ITEM(r, 2, Py_None);
         }
@@ -334,10 +329,8 @@ static char PyRRD_tune__doc__[] =
     "[--minimum|-i ds-name:min] [--maximum|-a ds-name:max] "
     "[--data-source-type|-d ds-name:DST] [--data-source-rename|-r old-name:new-name]";
 
-static PyObject *PyRRD_tune(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_tune(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     char    **argv;
     int       argc;
@@ -349,7 +342,8 @@ static PyObject *PyRRD_tune(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    }
+    else {
         Py_INCREF(Py_None);
         r = Py_None;
     }
@@ -361,10 +355,8 @@ static PyObject *PyRRD_tune(
 static char PyRRD_first__doc__[] =
     "first(filename): Return the timestamp of the first data sample in an RRD";
 
-static PyObject *PyRRD_first(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject 
+*PyRRD_first(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc, ts;
     char    **argv;
@@ -376,7 +368,8 @@ static PyObject *PyRRD_first(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else
+    } 
+    else
         r = PyInt_FromLong((long) ts);
 
     destroy_args(&argv);
@@ -386,10 +379,8 @@ static PyObject *PyRRD_first(
 static char PyRRD_last__doc__[] =
     "last(filename): Return the timestamp of the last data sample in an RRD";
 
-static PyObject *PyRRD_last(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject 
+*PyRRD_last(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc, ts;
     char    **argv;
@@ -401,7 +392,8 @@ static PyObject *PyRRD_last(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else
+    } 
+    else
         r = PyInt_FromLong((long) ts);
 
     destroy_args(&argv);
@@ -412,10 +404,8 @@ static char PyRRD_resize__doc__[] =
     "resize(args...): alters the size of an RRA.\n"
     "    resize filename rra-num GROW|SHRINK rows";
 
-static PyObject *PyRRD_resize(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject 
+*PyRRD_resize(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     char    **argv;
     int       argc, ts;
@@ -427,7 +417,8 @@ static PyObject *PyRRD_resize(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         Py_INCREF(Py_None);
         r = Py_None;
     }
@@ -436,9 +427,8 @@ static PyObject *PyRRD_resize(
     return r;
 }
 
-static PyObject *PyDict_FromInfo(
-    rrd_info_t * data)
-{
+static PyObject
+*PyDict_FromInfo(rrd_info_t * data) {
     PyObject *r;
 
     r = PyDict_New();
@@ -446,25 +436,25 @@ static PyObject *PyDict_FromInfo(
         PyObject *val = NULL;
 
         switch (data->type) {
-        case RD_I_VAL:
-            val = isnan(data->value.u_val)
-                ? (Py_INCREF(Py_None), Py_None)
-                : PyFloat_FromDouble(data->value.u_val);
-            break;
-        case RD_I_CNT:
-            val = PyLong_FromUnsignedLong(data->value.u_cnt);
-            break;
-        case RD_I_INT:
-            val = PyLong_FromLong(data->value.u_int);
-            break;
-        case RD_I_STR:
-            val = PyString_FromString(data->value.u_str);
-            break;
-        case RD_I_BLO:
-            val =
-                PyString_FromStringAndSize((char *) data->value.u_blo.ptr,
-                                           data->value.u_blo.size);
-            break;
+            case RD_I_VAL:
+                val = isnan(data->value.u_val)
+                    ? (Py_INCREF(Py_None), Py_None)
+                    : PyFloat_FromDouble(data->value.u_val);
+                break;
+            case RD_I_CNT:
+                val = PyLong_FromUnsignedLong(data->value.u_cnt);
+                break;
+            case RD_I_INT:
+                val = PyLong_FromLong(data->value.u_int);
+                break;
+            case RD_I_STR:
+                val = PyString_FromString(data->value.u_str);
+                break;
+            case RD_I_BLO:
+                val = PyString_FromStringAndSize(
+                            (char *) data->value.u_blo.ptr,
+                            data->value.u_blo.size);
+                break;
         }
         if (val) {
             PyDict_SetItemString(r, data->key, val);
@@ -478,10 +468,8 @@ static PyObject *PyDict_FromInfo(
 static char PyRRD_info__doc__[] =
     "info(filename): extract header information from an rrd";
 
-static PyObject *PyRRD_info(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject 
+*PyRRD_info(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc;
     char    **argv;
@@ -494,7 +482,8 @@ static PyObject *PyRRD_info(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         r = PyDict_FromInfo(data);
         rrd_info_free(data);
     }
@@ -506,10 +495,8 @@ static PyObject *PyRRD_info(
 static char PyRRD_graphv__doc__[] =
     "graphv is called in the same manner as graph";
 
-static PyObject *PyRRD_graphv(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_graphv(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc;
     char    **argv;
@@ -522,7 +509,8 @@ static PyObject *PyRRD_graphv(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         r = PyDict_FromInfo(data);
         rrd_info_free(data);
     }
@@ -534,10 +522,8 @@ static PyObject *PyRRD_graphv(
 static char PyRRD_updatev__doc__[] =
     "updatev is called in the same manner as update";
 
-static PyObject *PyRRD_updatev(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject 
+*PyRRD_updatev(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc;
     char    **argv;
@@ -550,7 +536,8 @@ static PyObject *PyRRD_updatev(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    } 
+    else {
         r = PyDict_FromInfo(data);
         rrd_info_free(data);
     }
@@ -563,10 +550,8 @@ static char PyRRD_flushcached__doc__[] =
   "flush(args..): flush RRD files from memory\n"
   "   flush [--daemon address] file [file ...]";
 
-static PyObject *PyRRD_flushcached(
-    PyObject UNUSED(*self),
-    PyObject * args)
-{
+static PyObject
+*PyRRD_flushcached(PyObject UNUSED(*self), PyObject * args) {
     PyObject *r;
     int       argc;
     char    **argv;
@@ -578,7 +563,8 @@ static PyObject *PyRRD_flushcached(
         PyErr_SetString(ErrorObject, rrd_get_error());
         rrd_clear_error();
         r = NULL;
-    } else {
+    }
+    else {
         Py_INCREF(Py_None);
         r = Py_None;
     }
@@ -616,9 +602,8 @@ static PyMethodDef _rrdtool_methods[] = {
             Py_DECREF(t);
 
 /* Initialization function for the module */
-void initrrdtool(
-    void)
-{
+void
+initrrdtool(void) {
     PyObject *m, *d, *t;
 
     /* Create the module and add the functions */
