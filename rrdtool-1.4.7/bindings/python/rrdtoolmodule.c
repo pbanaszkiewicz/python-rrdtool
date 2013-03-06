@@ -53,7 +53,7 @@ struct module_state {
     #define ISPY3
     #define PyInt_FromLong              PyLong_FromLong
     #define PyString_Check              PyUnicode_Check
-    #define PyString_FromString         PyBytes_FromString
+    #define PyString_FromString         PyUnicode_FromString
     #define PyString_AS_STRING(o)       \
             PyBytes_AS_STRING(PyUnicode_AsEncodedString(PyObject_Repr(o), "utf-8", "Error?"));
     #define PyString_FromStringAndSize  PyUnicode_FromStringAndSize
