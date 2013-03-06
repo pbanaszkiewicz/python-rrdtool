@@ -44,15 +44,53 @@ static const char *__version__ = PACKAGE_VERSION;
 #include "Python.h"
 #include "../../src/rrd_tool.h"
 
+
+struct module_state {
+    PyObject *error;
+};
+
+#if PY_MAJOR_VERSION >= 3
+    #define ISPY3
+    #define PyInt_FromLong              PyLong_FromLong
+    #define PyString_Check              PyUnicode_Check
+    #define PyString_FromString         PyBytes_FromString
+    #define PyString_AS_STRING(o)       \
+            PyBytes_AS_STRING(PyUnicode_AsEncodedString(PyObject_Repr(o), "utf-8", "Error?"));
+    #define PyString_FromStringAndSize  PyUnicode_FromStringAndSize
+
+    #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+    #define GETSTATE(m) (&_state)
+    static struct module_state _state;
+#endif
+
 static PyObject *ErrorObject;
 extern int optind;
 extern int opterr;
 
-/* forward declaration to keep compiler happy */
-void      initrrdtool(void);
+// Remove quotes from arguments which come from python 3 quoted
+void _rm_quotes(char* str) {
+    char *pr = str, *pw = str, *prev = str;
+
+    // trim first and shift
+    if (*pr == '\'')
+        *pw = *pr++;
+
+    while (*pr) {
+        prev = pr;
+        *pw = *pr++;
+        pw += (*pw != 0);
+    }
+    *pw = '\0';
+
+    // trim last
+    int last = strlen(str) - 1;
+    if (str[last] == '\'')
+        str[last] = 0;
+}
 
 static int
-create_args(char *command, PyObject * args, int *argc, char ***argv) {
+create_args(char *command, PyObject *args, int *argc, char ***argv) {
     PyObject *o, *lo;
     int       args_count,
               argv_count,
@@ -70,7 +108,7 @@ create_args(char *command, PyObject * args, int *argc, char ***argv) {
             element_count += PyList_Size(o);
         else {
             PyErr_Format(PyExc_TypeError, 
-                        "argument %d must be string or list of strings", i);
+                        "argument %d must be string or list of strings (1)", i);
             return -1;
         }
     }
@@ -83,9 +121,12 @@ create_args(char *command, PyObject * args, int *argc, char ***argv) {
     argv_count = 0;
     for (i = 0; i < args_count; i++) {
         o = PyTuple_GET_ITEM(args, i);
+
         if (PyString_Check(o)) {
             argv_count++;
             (*argv)[argv_count] = PyString_AS_STRING(o);
+            // remove errant quotes from py3
+            _rm_quotes((*argv)[argv_count]);
         }
         else if (PyList_CheckExact(o)) {
             for (j = 0; j < PyList_Size(o); j++) {
@@ -93,6 +134,8 @@ create_args(char *command, PyObject * args, int *argc, char ***argv) {
                 if (PyString_Check(lo)) {
                     argv_count++;
                     (*argv)[argv_count] = PyString_AS_STRING(lo);
+                    // remove errant quotes from py3
+                    _rm_quotes((*argv)[argv_count]);
                 }
                 else {
                     PyMem_Del(*argv);
@@ -105,7 +148,7 @@ create_args(char *command, PyObject * args, int *argc, char ***argv) {
         else {
             PyMem_Del(*argv);
             PyErr_Format(PyExc_TypeError, 
-                        "argument %d must be string or list of strings", i);
+                        "argument %d must be string or list of strings (2)", i);
             return -1;
         }
     }
@@ -123,6 +166,13 @@ static void
 destroy_args(char ***argv) {
     PyMem_Del(*argv);
     *argv = NULL;
+}
+
+static PyObject *
+error_out(PyObject *m) {
+    struct module_state *st = GETSTATE(m);
+    PyErr_SetString(st->error, "something bad happened");
+    return NULL;
 }
 
 static char PyRRD_create__doc__[] =
@@ -577,6 +627,7 @@ static PyObject
 #define meth(name, func, doc) {name, (PyCFunction)func, METH_VARARGS, doc}
 
 static PyMethodDef _rrdtool_methods[] = {
+    {"error_out", (PyCFunction)error_out, METH_NOARGS, NULL},
     meth("create", PyRRD_create, PyRRD_create__doc__),
     meth("update", PyRRD_update, PyRRD_update__doc__),
     meth("fetch", PyRRD_fetch, PyRRD_fetch__doc__),
@@ -588,7 +639,7 @@ static PyMethodDef _rrdtool_methods[] = {
     meth("info", PyRRD_info, PyRRD_info__doc__),
     meth("graphv", PyRRD_graphv, PyRRD_graphv__doc__),
     meth("updatev", PyRRD_updatev, PyRRD_updatev__doc__),
-    meth("flushcached", PyRRD_flushcached, PyRRD_flushcached__doc__),
+//    meth("flushcached", PyRRD_flushcached, PyRRD_flushcached__doc__),
     {NULL, NULL, 0, NULL}
 };
 
@@ -602,23 +653,65 @@ static PyMethodDef _rrdtool_methods[] = {
             Py_DECREF(t);
 
 /* Initialization function for the module */
+#ifdef ISPY3
+
+static int _rrdtool_traverse(PyObject *m, visitproc visit, void *arg) {
+    Py_VISIT(GETSTATE(m)->error);
+    return 0;
+}
+
+static int _rrdtool_clear(PyObject *m) {
+    Py_CLEAR(GETSTATE(m)->error);
+    return 0;
+}
+
+
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_rrdtool",
+        NULL,
+        sizeof(struct module_state),
+        _rrdtool_methods,
+        NULL,
+        _rrdtool_traverse,
+        _rrdtool_clear,
+        NULL
+};
+
+#define INITERROR return NULL
+
+PyObject *
+PyInit_rrdtool(void)
+
+#else
+#define INITERROR return
 void
-initrrdtool(void) {
-    PyObject *m, *d, *t;
+initrrdtool(void) 
+
+#endif
+
+{
 
     /* Create the module and add the functions */
-    m = Py_InitModule("rrdtool", _rrdtool_methods);
+#ifdef ISPY3
+    PyObject *module = PyModule_Create(&moduledef);
+#else
+    PyObject *module = Py_InitModule("rrdtool", _rrdtool_methods);
+#endif
 
-    /* Add some symbolic constants to the module */
-    d = PyModule_GetDict(m);
+    if (module == NULL)
+        INITERROR;
 
-    SET_STRCONSTANT(d, __version__);
-    ErrorObject = PyErr_NewException("rrdtool.error", NULL, NULL);
-    PyDict_SetItemString(d, "error", ErrorObject);
+    struct module_state *st = GETSTATE(module);
+    st->error = PyErr_NewException("rrdtool.error", NULL, NULL);
+    if (st->error == NULL) {
+        Py_DECREF(module);
+        INITERROR;
+    }
 
-    /* Check for errors */
-    if (PyErr_Occurred())
-        Py_FatalError("can't initialize the rrdtool module");
+#ifdef ISPY3
+    return module;
+#endif
 }
 
 /*
