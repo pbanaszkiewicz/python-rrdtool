@@ -7,6 +7,8 @@
  * Date    : $Date: 2003/02/22 07:41:19 $
  * Created : 23 May 2002
  *
+ * Ported to Python 3 by Michael Stella <github@thismetalsky.org>
+ *
  * $Revision: 1.14 $
  *
  *  ==========================================================================
@@ -53,11 +55,9 @@ struct module_state {
     #define ISPY3
     #define PyInt_FromLong              PyLong_FromLong
     #define PyString_Check              PyUnicode_Check
+    #define PyString_AS_STRING          PyUnicode_AsUTF8
     #define PyString_FromString         PyUnicode_FromString
-    #define PyString_AS_STRING(o)       \
-            PyBytes_AS_STRING(PyUnicode_AsEncodedString(PyObject_Repr(o), "utf-8", "Error?"));
     #define PyString_FromStringAndSize  PyUnicode_FromStringAndSize
-
     #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 #else
     #define GETSTATE(m) (&_state)
@@ -67,27 +67,6 @@ struct module_state {
 static PyObject *ErrorObject;
 extern int optind;
 extern int opterr;
-
-// Remove quotes from arguments which come from python 3 quoted
-void _rm_quotes(char* str) {
-    char *pr = str, *pw = str, *prev = str;
-
-    // trim first and shift
-    if (*pr == '\'')
-        *pw = *pr++;
-
-    while (*pr) {
-        prev = pr;
-        *pw = *pr++;
-        pw += (*pw != 0);
-    }
-    *pw = '\0';
-
-    // trim last
-    int last = strlen(str) - 1;
-    if (str[last] == '\'')
-        str[last] = 0;
-}
 
 static int
 create_args(char *command, PyObject *args, int *argc, char ***argv) {
@@ -120,13 +99,12 @@ create_args(char *command, PyObject *args, int *argc, char ***argv) {
 
     argv_count = 0;
     for (i = 0; i < args_count; i++) {
+
         o = PyTuple_GET_ITEM(args, i);
 
         if (PyString_Check(o)) {
             argv_count++;
             (*argv)[argv_count] = PyString_AS_STRING(o);
-            // remove errant quotes from py3
-            _rm_quotes((*argv)[argv_count]);
         }
         else if (PyList_CheckExact(o)) {
             for (j = 0; j < PyList_Size(o); j++) {
@@ -134,8 +112,6 @@ create_args(char *command, PyObject *args, int *argc, char ***argv) {
                 if (PyString_Check(lo)) {
                     argv_count++;
                     (*argv)[argv_count] = PyString_AS_STRING(lo);
-                    // remove errant quotes from py3
-                    _rm_quotes((*argv)[argv_count]);
                 }
                 else {
                     PyMem_Del(*argv);
@@ -639,7 +615,7 @@ static PyMethodDef _rrdtool_methods[] = {
     meth("info", PyRRD_info, PyRRD_info__doc__),
     meth("graphv", PyRRD_graphv, PyRRD_graphv__doc__),
     meth("updatev", PyRRD_updatev, PyRRD_updatev__doc__),
-//    meth("flushcached", PyRRD_flushcached, PyRRD_flushcached__doc__),
+    meth("flushcached", PyRRD_flushcached, PyRRD_flushcached__doc__),
     {NULL, NULL, 0, NULL}
 };
 
